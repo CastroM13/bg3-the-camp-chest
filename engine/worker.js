@@ -4,6 +4,7 @@ import { GameFS } from './gamefs.js';
 import { buildIndex } from './index.js';
 import { AssetBuilder } from './assets.js';
 import { httpDir } from './devdir.js';
+import { filesDir } from './filesdir.js';
 
 const INDEX_FORMAT = 3;          // bump when index.js output changes
 const ASSET_FORMAT = 4;          // bump when assets.js output changes
@@ -107,7 +108,7 @@ async function serve(path) {
 self.onmessage = async (e) => {
   const msg = e.data || {};
   if (msg.type === 'open') {
-    ready = open(msg.dataDir || httpDir(msg.devBase));
+    ready = open(msg.files ? filesDir(msg.files) : msg.dataDir || httpDir(msg.devBase));
     try { post({ type: 'ready', ...(await ready) }); }
     catch (err) { console.error(err); post({ type: 'error', message: String(err?.message || err), stack: String(err?.stack || '') }); }
   } else if (msg.type === 'vfs') {

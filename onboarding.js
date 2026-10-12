@@ -16,6 +16,8 @@
 //   isSupported(): boolean
 //   REQUIRED_FILES: string[]   (paths relative to the Data folder)
 
+import { filesDirFromList } from './engine/filesdir.js';
+
 export const REQUIRED_FILES = [
   'Gustav.pak',
   'Shared.pak',
@@ -269,8 +271,15 @@ class OnboardingUI {
         </label>
         <div class="ob-actions">
           <button type="button" class="ob-btn" id="ob-pick" disabled>Select game folder</button>
+          <button type="button" class="ob-btn ob-secondary" id="ob-classic" disabled>Use the classic folder dialog</button>
           <span class="ob-small" id="ob-pick-hint">Tick the box above to continue.</span>
         </div>
+        <p class="ob-small ob-classic-note">Installed in <em>Program Files</em> (the Steam default)? Chrome and Edge won't let
+          sites open folders there with the normal picker, and say the folder <q>contains system files</q>. Use
+          <strong>the classic folder dialog</strong> instead and pick the game's <code>Data</code> folder. The browser then
+          asks whether to <q>upload</q> the files: that is its standard wording for this dialog. The files are only read
+          inside this page and never leave your computer. A folder chosen this way can't be remembered, so you pick it
+          again on each visit (later visits still start quickly).</p>
         <div class="ob-status" role="status" aria-live="polite"></div>
       </div>
     `);
@@ -278,14 +287,15 @@ class OnboardingUI {
     const ack = this.$('#ob-ack');
     const pick = this.$('#ob-pick');
     const hint = this.$('#ob-pick-hint');
+    const classic = this.$('#ob-classic');
     ack.addEventListener('change', () => {
-      pick.disabled = !ack.checked;
+      pick.disabled = classic.disabled = !ack.checked;
       hint.hidden = ack.checked;
     });
     this.root.querySelectorAll('[data-copy]').forEach((btn) => {
       btn.addEventListener('click', () => copyText(INSTALL_PATHS[+btn.dataset.copy].path, btn));
     });
-    return { pick };
+    return { pick, classic };
   }
 
   welcomeBack(name) {
@@ -302,6 +312,23 @@ class OnboardingUI {
       <div class="ob-status" role="status" aria-live="polite"></div>
     `, { narrow: true });
     return { cont: this.$('#ob-continue'), other: this.$('#ob-other'), forget: this.$('#ob-forget') };
+  }
+
+  welcomeBackClassic(name) {
+    this.show(`
+      ${this.header('Camp Chest', 'Welcome back')}
+      <p>Select your Baldur's Gate 3 <code>Data</code> folder again${name ? ` (last time: <strong>${esc(name)}</strong>)` : ''}.
+        The browser can't remember folders chosen with the classic dialog.</p>
+      <p class="ob-small">When the browser asks whether to <q>upload</q> the files, that is just its wording: the files are
+        read only inside this page and never leave your computer.</p>
+      <div class="ob-actions">
+        <button type="button" class="ob-btn" id="ob-classic">Select the Data folder</button>
+        <button type="button" class="ob-btn ob-secondary" id="ob-other">Use the folder picker</button>
+        <button type="button" class="ob-link" id="ob-forget">Start over</button>
+      </div>
+      <div class="ob-status" role="status" aria-live="polite"></div>
+    `, { narrow: true });
+    return { classic: this.$('#ob-classic'), other: this.$('#ob-other'), forget: this.$('#ob-forget') };
   }
 
   busy(text) {
@@ -381,7 +408,12 @@ async function pickAndValidate(ui) {
   try {
     picked = await window.showDirectoryPicker({ id: PICKER_ID, mode: 'read' });
   } catch (err) {
-    if (err && err.name === 'AbortError') return null; // user cancelled
+    if (err && err.name === 'AbortError') {   // cancelled, or Chrome refused a folder inside Program Files
+      ui.status(`If the browser said it <strong>can't open the folder because it contains system files</strong>, the game
+        is inside <em>Program Files</em>. Click <strong>Use the classic folder dialog</strong> and pick the game's
+        <code>Data</code> folder instead.`);
+      return null;
+    }
     ui.status(describePickerError(err), 'error');
     return null;
   }
@@ -393,6 +425,36 @@ async function pickAndValidate(ui) {
     return null;
   }
   await saveFolder({ data, name: picked.name, dataName: data.name, acknowledged: true, savedAt: Date.now() });
+  return data;
+}
+
+// <input webkitdirectory>: works for folders the picker refuses, but can't be remembered between visits.
+function chooseWithInput() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.hidden = true;
+    input.addEventListener('change', () => { resolve(input.files && input.files.length ? input.files : null); input.remove(); });
+    input.addEventListener('cancel', () => { resolve(null); input.remove(); });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+async function pickClassicAndValidate(ui) {
+  const list = await chooseWithInput();
+  if (!list) return null;
+  ui.status('Checking the folder…');
+  const picked = filesDirFromList(list);
+  const data = await locateDataDir(picked);
+  const result = data ? await checkDataDir(data) : { ok: false, missing: REQUIRED_FILES.slice() };
+  if (!result.ok) {
+    ui.status(describeProblem(result, picked.name || 'that folder'), 'error');
+    return null;
+  }
+  await saveFolder({ mode: 'classic', name: picked.name, acknowledged: true, savedAt: Date.now() });
   return data;
 }
 
@@ -419,7 +481,10 @@ async function run() {
   }
 
   const saved = await loadSaved();
-  if (saved && saved.data) {
+  if (saved && saved.mode === 'classic') {
+    const data = await welcomeBackClassicFlow(ui, saved);
+    if (data) { ui.hide(); return data; }
+  } else if (saved && saved.data) {
     // Already permitted (same session, or Chrome's persistent permissions): go straight in.
     if ((await permissionState(saved.data, false)) === 'granted') {
       const check = await checkDataDir(saved.data);
@@ -479,18 +544,37 @@ function welcomeBackFlow(ui, saved) {
   });
 }
 
+function welcomeBackClassicFlow(ui, saved) {
+  return new Promise((resolve) => {
+    const { classic, other, forget } = ui.welcomeBackClassic(saved.name);
+    const setBusy = (b) => { classic.disabled = other.disabled = forget.disabled = b; };
+    const go = (fn) => async () => {
+      setBusy(true);
+      ui.status('');
+      const data = await fn(ui);
+      setBusy(false);
+      if (data) resolve(data);
+    };
+    classic.addEventListener('click', go(pickClassicAndValidate));
+    other.addEventListener('click', go(pickAndValidate));
+    forget.addEventListener('click', async () => { setBusy(true); await forgetGameFolder(); resolve(null); });
+  });
+}
+
 function firstVisitFlow(ui) {
   return new Promise((resolve) => {
-    const { pick } = ui.notice();
+    const { pick, classic } = ui.notice();
     const ack = ui.$('#ob-ack');
-    pick.addEventListener('click', async () => {
+    const go = (fn) => async () => {
       if (!ack.checked) return;
-      pick.disabled = true;
+      pick.disabled = classic.disabled = true;
       ui.status('');
-      const data = await pickAndValidate(ui);
-      pick.disabled = !ack.checked;
+      const data = await fn(ui);
+      pick.disabled = classic.disabled = !ack.checked;
       if (data) resolve(data);
-    });
+    };
+    pick.addEventListener('click', go(pickAndValidate));
+    classic.addEventListener('click', go(pickClassicAndValidate));
   });
 }
 

@@ -25,7 +25,10 @@ function startWorker(dataDir) {
       else if (m.type === 'error') reject(new Error(m.message));
     };
     worker.onerror = (e) => reject(new Error(e.message || 'The engine worker failed to start'));
-    worker.postMessage(dataDir ? { type: 'open', dataDir } : { type: 'open', devBase: new URL('../__bg3data/', import.meta.url).href });
+    // a real folder handle, files from the classic folder dialog (engine/filesdir.js), or the localhost test server
+    const open = dataDir?.files instanceof Map ? { type: 'open', files: dataDir.files }
+      : dataDir ? { type: 'open', dataDir } : { type: 'open', devBase: new URL('../__bg3data/', import.meta.url).href };
+    worker.postMessage(open);
   });
 }
 

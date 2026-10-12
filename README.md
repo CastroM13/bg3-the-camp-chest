@@ -59,6 +59,11 @@ Why it works this way:
    To find yours: in **Steam**, right-click the game › *Manage* › *Browse local files*; in **GOG Galaxy**, open the game ›
    *Manage installation* › *Show folder*. On macOS, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> in the picker to
    type a path, since the game's data sits inside the app bundle.
+   **If the game is inside `Program Files`** (the Steam default), Chrome and Edge refuse the normal picker and say the
+   folder "contains system files". Click **Use the classic folder dialog** instead and pick the game's `Data` folder.
+   The browser then asks whether to "upload" the files; that is only its wording for this dialog, and nothing leaves
+   your computer. A folder chosen this way can't be remembered, so you pick it again on each visit (later visits still
+   start in seconds because what was built is kept locally).
 4. Allow read access when the browser asks. The site checks that the required files are present
    (`Gustav.pak`, `Shared.pak`, `Models.pak`, `Textures.pak`, `VirtualTextures.pak`, `Game.pak`,
    `Localization/English.pak`) and then opens the catalogue.
