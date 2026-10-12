@@ -6,7 +6,7 @@ const inline = (s) => esc(s)
   .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   .replace(/\*([^*]+)\*/g, '<em>$1</em>')
   .replace(/&lt;(https?:\/\/[^&]+)&gt;/g, '<a href="$1" rel="noopener">$1</a>')
-  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => `<a href="${u === 'LICENSE' || u.endsWith('.md') ? 'https://github.com/your-github-user/your-repo/blob/main/' + u : u}" rel="noopener">${t}</a>`);
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => `<a href="${u === 'LICENSE' || u.endsWith('.md') ? 'https://github.com/CastroM13/bg3-the-camp-chest/blob/main/' + u : u}" rel="noopener">${t}</a>`);
 const md = readFileSync(new URL('../LEGAL.md', import.meta.url), 'utf8').replace(/\r/g, '');
 let html = '', para = [], list = [];
 const flush = () => {

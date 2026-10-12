@@ -129,15 +129,15 @@ tests need a local game install and compare against reference exports you make y
 
 ## Deployment (GitHub Pages)
 
-1. Push this folder to a GitHub repository (for example `<your-github-user>/<repo>`).
-2. In the repository, open **Settings › Pages**, choose **Deploy from a branch**, and select the branch and folder
-   (root, or `/docs` if you put the site there).
-3. The site is served over HTTPS at `https://<your-github-user>.github.io/<repo>/`, which satisfies the secure-context
-   requirement.
-4. Replace `your-github-user/your-repo` with the real repository in `index.html`, `LEGAL.md` and
-   `tools/build-legal.mjs`, then run `node tools/build-legal.mjs`.
+The site is live at <https://castrom13.github.io/bg3-the-camp-chest/>.
 
-Because the service worker's scope is the folder it is served from, keep `sw.js` at the site root.
+`.github/workflows/pages.yml` publishes it on every push to `main`: it refuses to run if any game-like file
+(`.pak`, `.gr2`, `.dds`, images, models, …) is tracked, then deploys only what the site needs (`index.html`,
+`legal.html`, `onboarding.*`, `sw.js`, `app/`, `engine/`, `lib/`, licence and notices). Tests and tools are not
+deployed. One-time setup: **Settings › Pages › Build and deployment › Source: GitHub Actions**.
+
+GitHub Pages serves over HTTPS, which folder access and service workers require. Keep `sw.js` at the site root so its
+scope covers `vfs/`. After editing `LEGAL.md`, run `node tools/build-legal.mjs` to regenerate `legal.html`.
 
 ## Credits
 
@@ -150,4 +150,4 @@ Camp Chest is an unofficial, non-commercial fan project and is not affiliated wi
 content; you need your own copy of the game. The project's own code is released under the [MIT License](LICENSE). See
 [LEGAL.md](LEGAL.md) for the full notice, including trademarks, your obligations, and how to send a removal request.
 
-Source: `https://github.com/<your-github-user>/<repo>`
+Source: <https://github.com/CastroM13/bg3-the-camp-chest>

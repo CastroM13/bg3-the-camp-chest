@@ -55,7 +55,7 @@ If you represent a rights holder (including Larian Studios or Wizards of the Coa
 project, or want something changed or taken down, please contact us. We will respond promptly and in good faith, and we
 intend to take the site down if a rights holder asks us to.
 
-- Open an issue on the project's GitHub repository: <https://github.com/your-github-user/your-repo/issues>
+- Open an issue on the project's GitHub repository: <https://github.com/CastroM13/bg3-the-camp-chest/issues>
 
 ## Licence and third-party notices
 
