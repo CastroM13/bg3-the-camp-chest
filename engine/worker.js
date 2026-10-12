@@ -7,7 +7,7 @@ import { httpDir } from './devdir.js';
 import { filesDir } from './filesdir.js';
 
 const INDEX_FORMAT = 3;          // bump when index.js output changes
-const ASSET_FORMAT = 4;          // bump when assets.js output changes
+const ASSET_FORMAT = 5;          // bump when assets.js output changes
 let fs = null, builder = null, cache = null, ready = null;
 
 const post = (msg) => self.postMessage(msg);

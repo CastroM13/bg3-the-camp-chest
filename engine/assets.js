@@ -260,6 +260,7 @@ export class AssetBuilder {
         const mobj = meshes.get(meshName);
         if (!mobj) continue;
         const mesh = decodeMesh(gr.g, mobj);
+        if (!mesh.boneNames?.length && mobj.BoneBindings?.length) mesh.boneNames = mobj.BoneBindings.map((bb) => bb.BoneName);   // rigid meshes
         const tex = mat ? await this.materialTextures(o.MaterialID, kind === 'loot' ? a.equipment : a.equipment) : null;
         const shader = mat?.SourceFile || '';
         parts.push({ mesh, mat: { name: (mat?.Name || 'material').replace(/[^A-Za-z0-9_]+/g, '_'), textures: tex || {}, dye: tex?.dye || null,
@@ -390,6 +391,11 @@ export function writeGLTF(parts, binName, { rig }) {
     if (mat.dye) gm.extras = { bg3Dye: mat.dye };
     g.materials.push(gm);
     const node = { name: mesh.name };
+    if (rig && skeleton && mesh.boneNames?.length && !mesh.joints) {
+      // rigid mesh bound to one bone (most helmets): skin every vertex fully to that bone
+      mesh.joints = new Uint16Array(n * 4); mesh.weights = new Float32Array(n * 4);
+      for (let i = 0; i < n; i++) mesh.weights[i * 4] = 1;
+    }
     if (rig && skeleton && mesh.joints && mesh.boneNames?.length) {
       addSkeleton(skeleton);
       if (mesh.boneNames.every((nm) => boneNode.has(nm))) {
