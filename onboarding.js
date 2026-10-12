@@ -1,18 +1,17 @@
 // Camp Chest - first-visit onboarding and game-folder access.
 //
 // The site hosts only code. Every model, texture, icon and line of text comes from the visitor's own
-// Baldur's Gate 3 installation, read locally in the browser through the File System Access API.
-// This module owns everything about getting (and remembering) read access to that installation.
+// Baldur's Gate 3 installation, read locally in the browser. The folder is chosen with the browser's folder dialog
+// (<input webkitdirectory>), because showDirectoryPicker() refuses folders under Program Files, where Steam installs
+// the game by default. A folder chosen this way can't be remembered, so each visit asks for it again.
 //
 // Public API:
-//   getGameFolder(): Promise<FileSystemDirectoryHandle>
-//       Resolves with the game's *Data* directory once it is picked, validated and readable. Shows
-//       whatever UI is needed (first-visit notice, "welcome back", errors) inside #onboarding.
-//       Calling it more than once returns the same promise. In an unsupported browser it shows an
-//       explanation and never resolves.
+//   getGameFolder(): Promise<directory>
+//       Resolves with the game's *Data* directory (engine/filesdir.js stand-in for a directory handle, with a
+//       `files` Map) once it is picked and validated. Shows whatever UI is needed (first-visit notice,
+//       "welcome back", errors) inside #onboarding. Calling it more than once returns the same promise.
 //   forgetGameFolder(): Promise<void>
-//       Removes the remembered folder (for a "Change game folder" control in the app). Reload or call
-//       getGameFolder() again afterwards to show the first-visit notice.
+//       Forgets that the notice was accepted and deletes everything built from the game files.
 //   isSupported(): boolean
 //   REQUIRED_FILES: string[]   (paths relative to the Data folder)
 
@@ -31,41 +30,41 @@ export const REQUIRED_FILES = [
 const DB_NAME = 'camp-chest';
 const DB_STORE = 'kv';
 const DB_KEY = 'gameFolder';
-const PICKER_ID = 'bg3';
 
 const MAC_APP = "Baldur's Gate 3.app";
 
 const INSTALL_PATHS = [
   {
     name: 'Steam (default)',
-    path: String.raw`C:\Program Files (x86)\Steam\steamapps\common\Baldurs Gate 3`,
+    path: String.raw`C:\Program Files (x86)\Steam\steamapps\common\Baldurs Gate 3\Data`,
   },
   {
     name: 'Steam library on another drive',
-    path: String.raw`<Drive>:\SteamLibrary\steamapps\common\Baldurs Gate 3`,
+    path: String.raw`<Drive>:\SteamLibrary\steamapps\common\Baldurs Gate 3\Data`,
     note: 'Replace <Drive> with the drive letter of your Steam library (for example D).',
   },
   {
     name: 'GOG Galaxy',
-    path: String.raw`C:\Program Files (x86)\GOG Galaxy\Games\Baldurs Gate 3`,
+    path: String.raw`C:\Program Files (x86)\GOG Galaxy\Games\Baldurs Gate 3\Data`,
   },
   {
     name: 'Xbox app / PC Game Pass',
-    path: String.raw`C:\XboxGames\Baldur's Gate 3\Content`,
+    path: String.raw`C:\XboxGames\Baldur's Gate 3\Content\Data`,
     note: 'May not work: Game Pass installs can be protected so that other programs, including your browser, cannot read the game files. If that happens, Camp Chest cannot read them either.',
     warn: true,
   },
   {
     name: 'macOS (Steam)',
     path: "~/Library/Application Support/Steam/steamapps/common/Baldurs Gate 3/Baldur's Gate 3.app/Contents/Data",
-    note: 'Needs a Chromium browser such as Chrome or Edge. The game is an app bundle: in the folder picker press Cmd+Shift+G and paste this path, or select the "Baldur\'s Gate 3.app" bundle itself (the same folder you would reach with "Show Package Contents" in Finder).',
+    note: 'The game is an app bundle: in the folder dialog press Cmd+Shift+G and paste this path.',
   },
 ];
 
 // ------------------------------------------------------------------ helpers
 
 export function isSupported() {
-  return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function' && window.isSecureContext;
+  return typeof window !== 'undefined' && window.isSecureContext && 'serviceWorker' in navigator &&
+    'webkitdirectory' in document.createElement('input');
 }
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -114,16 +113,6 @@ async function walk(dir, parts, last = 'dir') {
   return cur;
 }
 
-async function permissionState(handle, request) {
-  const opts = { mode: 'read' };
-  try {
-    if (request) return typeof handle.requestPermission === 'function' ? await handle.requestPermission(opts) : 'granted';
-    return typeof handle.queryPermission === 'function' ? await handle.queryPermission(opts) : 'granted';
-  } catch (e) {
-    console.warn('[onboarding] permission check failed', e);
-    return 'denied';
-  }
-}
 
 // Accepts the game folder, its Data folder, the macOS app bundle (or its Contents folder), or the folder
 // that holds the app bundle. Returns { data, missing[], unreadable } for the best candidate found.
@@ -215,16 +204,16 @@ class OnboardingUI {
   }
 
   unsupported() {
-    const insecure = typeof window.showDirectoryPicker === 'function' && !window.isSecureContext;
+    const insecure = !window.isSecureContext;
     this.show(`
       ${this.header('Camp Chest', 'This browser can’t open your game folder')}
       <p class="ob-lead">Camp Chest reads Baldur's Gate 3 directly from your own installed copy, inside your browser.
-        That needs the <strong>File System Access API</strong>, which is only available in
-        <strong>desktop Chrome or Microsoft Edge</strong> (and other desktop Chromium browsers).</p>
+        That needs a desktop browser that can open a folder from your computer, such as
+        <strong>Chrome or Microsoft Edge</strong>.</p>
       ${insecure
-        ? `<p class="ob-msg error">This page was opened over an insecure connection. The folder picker only works on
+        ? `<p class="ob-msg error">This page was opened over an insecure connection. Opening folders only works on
              <code>https://</code> or <code>http://localhost</code>.</p>`
-        : `<p>Firefox, Safari and mobile browsers don't support it yet, so the folder picker can't be shown here.</p>`}
+        : `<p>Mobile browsers can't open folders, so the game can't be read here.</p>`}
       <p class="ob-muted">Please open this page in desktop Chrome or Edge on the computer where the game is installed.
         Nothing is uploaded: the site only hosts code, and game files never leave your computer.</p>
     `, { narrow: true });
@@ -247,21 +236,20 @@ class OnboardingUI {
       <ul class="ob-facts">
         <li><b>You need the game</b>Baldur's Gate 3 must be installed on this computer, and you must own it.</li>
         <li><b>Read locally</b>Files are read in your browser. Nothing is uploaded, and no game content is hosted on this site.</li>
-        <li><b>Desktop Chrome or Edge</b>The site uses the File System Access API, which only these browsers provide.</li>
-        <li><b>Read-only</b>The browser asks for read access only. Camp Chest never changes your game files.</li>
+        <li><b>Desktop Chrome or Edge</b>Use a desktop browser on the computer where the game is installed.</li>
+        <li><b>Read-only</b>Camp Chest only reads the files. It never changes your game.</li>
       </ul>
 
       <h2 class="ob-h2">Which folder to pick</h2>
-      <p>Pick the <strong>Baldur's Gate 3 game folder</strong> (the one that contains <code>Data</code> and <code>bin</code>),
-        or the <strong>Data</strong> folder inside it. Common locations:</p>
+      <p>Pick the game's <strong>Data</strong> folder, inside the Baldur's Gate 3 folder. Common locations:</p>
       <ul class="ob-paths">${paths}</ul>
 
       <h2 class="ob-h2">Can't find it?</h2>
       <ol class="ob-steps">
         <li><strong>Steam:</strong> right-click Baldur's Gate 3 in your library &rsaquo; <em>Manage</em> &rsaquo; <em>Browse local files</em>.</li>
         <li><strong>GOG Galaxy:</strong> open the game &rsaquo; the settings button &rsaquo; <em>Manage installation</em> &rsaquo; <em>Show folder</em>.</li>
-        <li>Copy the folder's address from the window that opens and paste it into the picker's address bar
-          (on macOS, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> in the picker to type a path).</li>
+        <li>Copy the folder's address from the window that opens and paste it into the folder dialog's address bar
+          (on macOS, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> in the dialog to type a path).</li>
       </ol>
 
       <div class="ob-ack">
@@ -270,16 +258,13 @@ class OnboardingUI {
           <span>I own Baldur's Gate 3 and understand game files are read locally from my computer</span>
         </label>
         <div class="ob-actions">
-          <button type="button" class="ob-btn" id="ob-pick" disabled>Select game folder</button>
-          <button type="button" class="ob-btn ob-secondary" id="ob-classic" disabled>Use the classic folder dialog</button>
+          <button type="button" class="ob-btn" id="ob-pick" disabled>Select the Data folder</button>
           <span class="ob-small" id="ob-pick-hint">Tick the box above to continue.</span>
         </div>
-        <p class="ob-small ob-classic-note">Installed in <em>Program Files</em> (the Steam default)? Chrome and Edge won't let
-          sites open folders there with the normal picker, and say the folder <q>contains system files</q>. Use
-          <strong>the classic folder dialog</strong> instead and pick the game's <code>Data</code> folder. The browser then
-          asks whether to <q>upload</q> the files: that is its standard wording for this dialog. The files are only read
-          inside this page and never leave your computer. A folder chosen this way can't be remembered, so you pick it
-          again on each visit (later visits still start quickly).</p>
+        <p class="ob-small ob-classic-note">After you pick the folder, the browser asks whether to <q>upload</q> its files.
+          That is only the browser's standard wording for this dialog: the files are read inside this page and never leave
+          your computer. The browser can't remember the folder, so you pick it again on each visit (later visits still
+          start quickly).</p>
         <div class="ob-status" role="status" aria-live="polite"></div>
       </div>
     `);
@@ -287,48 +272,30 @@ class OnboardingUI {
     const ack = this.$('#ob-ack');
     const pick = this.$('#ob-pick');
     const hint = this.$('#ob-pick-hint');
-    const classic = this.$('#ob-classic');
     ack.addEventListener('change', () => {
-      pick.disabled = classic.disabled = !ack.checked;
+      pick.disabled = !ack.checked;
       hint.hidden = ack.checked;
     });
     this.root.querySelectorAll('[data-copy]').forEach((btn) => {
       btn.addEventListener('click', () => copyText(INSTALL_PATHS[+btn.dataset.copy].path, btn));
     });
-    return { pick, classic };
+    return { pick };
   }
 
   welcomeBack(name) {
     this.show(`
       ${this.header('Camp Chest', 'Welcome back')}
-      <p>Continue with your Baldur's Gate 3 folder:</p>
-      <div class="ob-folder">${esc(name)}</div>
-      <p class="ob-small">Your browser may ask you to allow read access again. Files are still read only on this computer.</p>
-      <div class="ob-actions">
-        <button type="button" class="ob-btn" id="ob-continue">Continue with ${esc(name)}</button>
-        <button type="button" class="ob-btn ob-secondary" id="ob-other">Choose a different folder</button>
-        <button type="button" class="ob-link" id="ob-forget">Forget this folder</button>
-      </div>
-      <div class="ob-status" role="status" aria-live="polite"></div>
-    `, { narrow: true });
-    return { cont: this.$('#ob-continue'), other: this.$('#ob-other'), forget: this.$('#ob-forget') };
-  }
-
-  welcomeBackClassic(name) {
-    this.show(`
-      ${this.header('Camp Chest', 'Welcome back')}
       <p>Select your Baldur's Gate 3 <code>Data</code> folder again${name ? ` (last time: <strong>${esc(name)}</strong>)` : ''}.
-        The browser can't remember folders chosen with the classic dialog.</p>
+        The browser can't remember it between visits.</p>
       <p class="ob-small">When the browser asks whether to <q>upload</q> the files, that is just its wording: the files are
         read only inside this page and never leave your computer.</p>
       <div class="ob-actions">
-        <button type="button" class="ob-btn" id="ob-classic">Select the Data folder</button>
-        <button type="button" class="ob-btn ob-secondary" id="ob-other">Use the folder picker</button>
+        <button type="button" class="ob-btn" id="ob-pick">Select the Data folder</button>
         <button type="button" class="ob-link" id="ob-forget">Start over</button>
       </div>
       <div class="ob-status" role="status" aria-live="polite"></div>
     `, { narrow: true });
-    return { classic: this.$('#ob-classic'), other: this.$('#ob-other'), forget: this.$('#ob-forget') };
+    return { pick: this.$('#ob-pick'), forget: this.$('#ob-forget') };
   }
 
   busy(text) {
@@ -393,42 +360,7 @@ function describeProblem(result, pickedName) {
     &rsaquo; Properties &rsaquo; Installed Files &rsaquo; Verify integrity), then pick the folder again.`;
 }
 
-function describePickerError(err) {
-  if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {
-    return `<strong>Your browser refused access to that folder.</strong> Browsers block some system folders. Pick the
-      Baldur's Gate 3 folder itself, or its <code>Data</code> folder, rather than a parent such as <em>Program Files</em>.
-      On macOS, if the browser won't allow folders under <em>Library</em>, you can add a Steam library in another location
-      (Steam &rsaquo; Settings &rsaquo; Storage) and move the game there.`;
-  }
-  return `<strong>Something went wrong opening the folder picker.</strong> ${esc(err && err.message ? err.message : String(err))}`;
-}
-
-async function pickAndValidate(ui) {
-  let picked;
-  try {
-    picked = await window.showDirectoryPicker({ id: PICKER_ID, mode: 'read' });
-  } catch (err) {
-    if (err && err.name === 'AbortError') {   // cancelled, or Chrome refused a folder inside Program Files
-      ui.status(`If the browser said it <strong>can't open the folder because it contains system files</strong>, the game
-        is inside <em>Program Files</em>. Click <strong>Use the classic folder dialog</strong> and pick the game's
-        <code>Data</code> folder instead.`);
-      return null;
-    }
-    ui.status(describePickerError(err), 'error');
-    return null;
-  }
-  ui.status('Checking the folder…');
-  const data = await locateDataDir(picked);
-  const result = data ? await checkDataDir(data) : { ok: false, missing: REQUIRED_FILES.slice() };
-  if (!result.ok) {
-    ui.status(describeProblem(result, picked.name), 'error');
-    return null;
-  }
-  await saveFolder({ data, name: picked.name, dataName: data.name, acknowledged: true, savedAt: Date.now() });
-  return data;
-}
-
-// <input webkitdirectory>: works for folders the picker refuses, but can't be remembered between visits.
+// <input webkitdirectory>: unlike showDirectoryPicker() it works under Program Files, but it can't be remembered.
 function chooseWithInput() {
   return new Promise((resolve) => {
     const input = document.createElement('input');
@@ -443,7 +375,7 @@ function chooseWithInput() {
   });
 }
 
-async function pickClassicAndValidate(ui) {
+async function pickAndValidate(ui) {
   const list = await chooseWithInput();
   if (!list) return null;
   ui.status('Checking the folder…');
@@ -454,7 +386,7 @@ async function pickClassicAndValidate(ui) {
     ui.status(describeProblem(result, picked.name || 'that folder'), 'error');
     return null;
   }
-  await saveFolder({ mode: 'classic', name: picked.name, acknowledged: true, savedAt: Date.now() });
+  await saveFolder({ name: picked.name, acknowledged: true, savedAt: Date.now() });
   return data;
 }
 
@@ -481,100 +413,40 @@ async function run() {
   }
 
   const saved = await loadSaved();
-  if (saved && saved.mode === 'classic') {
-    const data = await welcomeBackClassicFlow(ui, saved);
-    if (data) { ui.hide(); return data; }
-  } else if (saved && saved.data) {
-    // Already permitted (same session, or Chrome's persistent permissions): go straight in.
-    if ((await permissionState(saved.data, false)) === 'granted') {
-      const check = await checkDataDir(saved.data);
-      if (check.ok) { ui.hide(); return saved.data; }
-    }
-    const data = await welcomeBackFlow(ui, saved);
-    if (data) { ui.hide(); return data; }
-  }
-
-  const data = await firstVisitFlow(ui);
+  const data = saved?.acknowledged ? await welcomeBackFlow(ui, saved) : null;
+  const result = data || await firstVisitFlow(ui);
   ui.hide();
-  return data;
+  return result;
 }
 
-// Resolves with the Data dir, or null when the user chose "Forget this folder".
+// Resolves with the Data dir, or null when the user chose "Start over".
 function welcomeBackFlow(ui, saved) {
   return new Promise((resolve) => {
-    const { cont, other, forget } = ui.welcomeBack(saved.name || saved.data.name);
-    const setBusy = (b) => { cont.disabled = other.disabled = forget.disabled = b; };
-
-    cont.addEventListener('click', async () => {
-      setBusy(true);
-      ui.status('');
-      const state = await permissionState(saved.data, true); // must run inside the click (user gesture)
-      if (state !== 'granted') {
-        ui.status(`<strong>Read access wasn't granted.</strong> Camp Chest can't show anything without reading your game
-          files. Click <em>Continue</em> again and choose <em>Allow</em> (or <em>View files</em>) when the browser asks,
-          or choose a different folder.`, 'error');
-        setBusy(false);
-        return;
-      }
-      ui.status('Checking the folder…');
-      let check;
-      try { check = await checkDataDir(saved.data); } catch { check = { ok: false, missing: REQUIRED_FILES.slice() }; }
-      if (!check.ok) {
-        ui.status(`${describeProblem(check, saved.name || saved.data.name)}<br>If the game moved or was reinstalled,
-          choose its new folder.`, 'error');
-        setBusy(false);
-        return;
-      }
-      resolve(saved.data);
-    });
-
-    other.addEventListener('click', async () => {
+    const { pick, forget } = ui.welcomeBack(saved.name);
+    const setBusy = (b) => { pick.disabled = forget.disabled = b; };
+    pick.addEventListener('click', async () => {
       setBusy(true);
       ui.status('');
       const data = await pickAndValidate(ui);
       setBusy(false);
       if (data) resolve(data);
     });
-
-    forget.addEventListener('click', async () => {
-      setBusy(true);
-      await forgetGameFolder();
-      resolve(null);
-    });
-  });
-}
-
-function welcomeBackClassicFlow(ui, saved) {
-  return new Promise((resolve) => {
-    const { classic, other, forget } = ui.welcomeBackClassic(saved.name);
-    const setBusy = (b) => { classic.disabled = other.disabled = forget.disabled = b; };
-    const go = (fn) => async () => {
-      setBusy(true);
-      ui.status('');
-      const data = await fn(ui);
-      setBusy(false);
-      if (data) resolve(data);
-    };
-    classic.addEventListener('click', go(pickClassicAndValidate));
-    other.addEventListener('click', go(pickAndValidate));
     forget.addEventListener('click', async () => { setBusy(true); await forgetGameFolder(); resolve(null); });
   });
 }
 
 function firstVisitFlow(ui) {
   return new Promise((resolve) => {
-    const { pick, classic } = ui.notice();
+    const { pick } = ui.notice();
     const ack = ui.$('#ob-ack');
-    const go = (fn) => async () => {
+    pick.addEventListener('click', async () => {
       if (!ack.checked) return;
-      pick.disabled = classic.disabled = true;
+      pick.disabled = true;
       ui.status('');
-      const data = await fn(ui);
-      pick.disabled = classic.disabled = !ack.checked;
+      const data = await pickAndValidate(ui);
+      pick.disabled = !ack.checked;
       if (data) resolve(data);
-    };
-    pick.addEventListener('click', go(pickAndValidate));
-    classic.addEventListener('click', go(pickClassicAndValidate));
+    });
   });
 }
 

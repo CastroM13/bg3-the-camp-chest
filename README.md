@@ -36,40 +36,38 @@ Why it works this way:
 
 - **Baldur's Gate 3, installed** on the computer you're using, and you must own it (Steam and GOG installs work;
   Xbox app / PC Game Pass installs may not, because their files can be protected).
-- **Desktop Chrome or Microsoft Edge** (or another desktop Chromium browser). The site uses the
-  [File System Access API](https://developer.mozilla.org/docs/Web/API/File_System_API), which Firefox, Safari and mobile
-  browsers don't support.
+- **Desktop Chrome or Microsoft Edge** (tested). Other desktop browsers that support folder selection may work but are
+  untested. Mobile browsers can't open folders.
 - A reasonably modern GPU for WebGL, and enough memory to decode textures (a few GB of RAM is comfortable).
 
 ## How to use
 
 1. Open the site in desktop Chrome or Edge.
 2. Read the notice, tick *"I own Baldur's Gate 3 and understand game files are read locally from my computer"*, and
-   click **Select game folder**.
-3. Pick the game folder (or its `Data` folder). Common locations:
+   click **Select the Data folder**.
+3. Pick the game's `Data` folder. Common locations:
 
    | Install | Folder |
    |---|---|
-   | Steam (default) | `C:\Program Files (x86)\Steam\steamapps\common\Baldurs Gate 3` |
-   | Steam library on another drive | `<Drive>:\SteamLibrary\steamapps\common\Baldurs Gate 3` |
-   | GOG Galaxy | `C:\Program Files (x86)\GOG Galaxy\Games\Baldurs Gate 3` |
-   | Xbox app / PC Game Pass (may not work) | `C:\XboxGames\Baldur's Gate 3\Content` |
+   | Steam (default) | `C:\Program Files (x86)\Steam\steamapps\common\Baldurs Gate 3\Data` |
+   | Steam library on another drive | `<Drive>:\SteamLibrary\steamapps\common\Baldurs Gate 3\Data` |
+   | GOG Galaxy | `C:\Program Files (x86)\GOG Galaxy\Games\Baldurs Gate 3\Data` |
+   | Xbox app / PC Game Pass (may not work) | `C:\XboxGames\Baldur's Gate 3\Content\Data` |
    | macOS (Steam) | `~/Library/Application Support/Steam/steamapps/common/Baldurs Gate 3/Baldur's Gate 3.app/Contents/Data` |
 
    To find yours: in **Steam**, right-click the game › *Manage* › *Browse local files*; in **GOG Galaxy**, open the game ›
-   *Manage installation* › *Show folder*. On macOS, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> in the picker to
+   *Manage installation* › *Show folder*. On macOS, press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> in the dialog to
    type a path, since the game's data sits inside the app bundle.
-   **If the game is inside `Program Files`** (the Steam default), Chrome and Edge refuse the normal picker and say the
-   folder "contains system files". Click **Use the classic folder dialog** instead and pick the game's `Data` folder.
-   The browser then asks whether to "upload" the files; that is only its wording for this dialog, and nothing leaves
-   your computer. A folder chosen this way can't be remembered, so you pick it again on each visit (later visits still
-   start in seconds because what was built is kept locally).
-4. Allow read access when the browser asks. The site checks that the required files are present
-   (`Gustav.pak`, `Shared.pak`, `Models.pak`, `Textures.pak`, `VirtualTextures.pak`, `Game.pak`,
+4. The browser asks whether to "upload" the folder's files. That is only its standard wording for folder selection:
+   the files are read inside the page and never leave your computer. The site checks that the required files are
+   present (`Gustav.pak`, `Shared.pak`, `Models.pak`, `Textures.pak`, `VirtualTextures.pak`, `Game.pak`,
    `Localization/English.pak`) and then opens the catalogue.
 
-The browser remembers the folder. On your next visit, click **Continue** (the browser may ask again for read access),
-or choose a different folder, or forget it.
+The browser can't remember a folder between visits, so a short *Welcome back* screen asks you to pick `Data` again.
+Later visits still open in a couple of seconds, because what was built last time is kept on your computer.
+
+> Why not the newer folder picker (`showDirectoryPicker`)? It would remember the folder, but Chrome and Edge refuse it
+> for anything inside `Program Files`, which is where Steam installs the game by default.
 
 ## Privacy
 
@@ -77,18 +75,17 @@ or choose a different folder, or forget it.
 - The site has no accounts, no analytics and no ads. The only third-party requests are for code and fonts: three.js
   from a CDN (jsDelivr) and the Cinzel / EB Garamond fonts from Google Fonts. Like any web request, those services can
   see your IP address; they never receive game files.
-- The browser stores the folder *handle* (a reference to the folder, not its contents) in IndexedDB so you don't have to
-  pick it again, plus the catalogue, models and textures built from your files, which are kept in the browser's
-  origin-private file system on your computer so later visits are fast. They are rebuilt automatically after a game
-  patch. Use **Change game folder** / **Forget this folder**, or clear the site's data in your browser settings, to
-  remove them.
+- The catalogue, models and textures built from your files are kept in the browser's origin-private file system on
+  your computer so later visits are fast, and are rebuilt automatically after a game patch. IndexedDB only records
+  that you accepted the notice and the folder's name. Use **Change game folder** (bottom of the page) or clear the
+  site's data in your browser settings to remove them.
 
 ## How it works
 
 All of this runs in your browser. There is no backend.
 
-- **Folder access** (`onboarding.js`): `showDirectoryPicker()` gives a read-only `FileSystemDirectoryHandle`, which is
-  validated and persisted in IndexedDB.
+- **Folder access** (`onboarding.js`, `engine/filesdir.js`): the folder dialog (`<input webkitdirectory>`) gives
+  `File` objects for every file in the folder; they are wrapped in a small directory-like interface and validated.
 - **Pak reader** (`lib/pak.js`): reads the LSPK v18 archive format directly from `File`/`Blob` slices, so multi-GB
   archives (and their `_1`, `_2`, … parts) are never loaded into memory whole.
 - **BitKnit2 decoder** (`lib/bitknit2.js`): a JavaScript port of the rANS-based BitKnit2 decompressor used by the game's
@@ -117,7 +114,7 @@ python -m http.server 8080
 npx serve .
 ```
 
-Then open <http://localhost:8080/>. The File System Access API (and service workers) only work in a **secure context**:
+Then open <http://localhost:8080/>. Folder access and service workers only work in a **secure context**:
 `https://` or `http://localhost`. Opening `index.html` from `file://` or over plain `http://` on another host will not
 work.
 
@@ -127,7 +124,7 @@ tests need a local game install and compare against reference exports you make y
 - `node test/engine-test.mjs "<path to Baldurs Gate 3/Data>"` builds the item index and a few models in Node.
 - `python -I test/dev_server.py . "<path to Baldurs Gate 3/Data>"` serves the site on <http://localhost:8772/> and
   exposes your local game folder to it **on this machine only**, so `http://localhost:8772/?devdata` can be tested by
-  automated browsers that cannot use the folder picker. The `?devdata` switch only works on localhost.
+  automated browsers that cannot use the folder dialog. The `?devdata` switch only works on localhost.
 - After editing `LEGAL.md`, run `node tools/build-legal.mjs` to regenerate `legal.html`.
 
 ## Deployment (GitHub Pages)

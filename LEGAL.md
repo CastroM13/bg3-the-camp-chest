@@ -32,7 +32,7 @@ read from that folder **at runtime, locally in your browser**. The site is desig
 - game content is **not redistributed** to other users. Each visitor only ever sees content read from their own copy.
 
 The browser may keep the folder permission and temporary data on your own computer (for example in the browser's
-storage) so the site can start faster next time. You can remove it at any time with "Forget this folder" or by clearing
+storage) so the site can start faster next time. You can remove it at any time with "Change game folder" or by clearing
 the site's data in your browser settings. That local data is never sent anywhere.
 
 We believe this "bring your own game" approach respects the rights of the game's creators, because the site cannot be

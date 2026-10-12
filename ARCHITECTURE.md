@@ -1,12 +1,13 @@
 # Camp Chest (web): architecture and module contracts
 
 The site hosts **only code**. Every piece of game content (models, textures, icons, names, stats) is read from the
-visitor's own Baldur's Gate 3 install, inside their browser, through the File System Access API (Chrome/Edge desktop).
+visitor's own Baldur's Gate 3 install, inside their browser. The folder is chosen with the browser's folder dialog (`<input webkitdirectory>`), wrapped by
+`engine/filesdir.js` in a small directory-handle-like interface.
 Nothing is uploaded anywhere.
 
 ```
 site/
-  index.html            entry: the first-visit notice + folder picker, then the app
+  index.html            entry: the first-visit notice + folder dialog, then the app
   app/                  the catalogue / dyes / Dressing Room UI (fetches everything under vfs/)
   sw.js                 service worker: serves vfs/* requests by asking the page's engine to build them
   engine/               runs in a dedicated Worker: opens the .pak files, builds the item index, builds assets
