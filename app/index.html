@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>if (window.top === window) location.replace("../" + location.hash); // the app runs inside the home page, which holds the game folder</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camp Chest · BG3 Item Catalog</title>
+<meta name="description" content="Browse Baldur's Gate 3 base weapons, armour and clothing with 3D models and stats.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<!-- Shared ornament symbols (used by app.js to decorate .frame elements) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3d58e"/>
+      <stop offset=".45" stop-color="#c59a4c"/>
+      <stop offset="1" stop-color="#7a5626"/>
+    </linearGradient>
+  </defs>
+  <symbol id="corner" viewBox="0 0 48 48">
+    <g fill="none" stroke="url(#g-gold)" stroke-linecap="round">
+      <path d="M2.5 46V10Q2.5 2.5 10 2.5H46" stroke-width="1.6"/>
+      <path d="M8 40V15Q8 8 15 8H40" stroke-width=".9" opacity=".75"/>
+      <path d="M8 22c5.5 0 8-3 8-7.5 0-3-2-4.5-4-4.5s-3 1.6-3 3.2c0 1.5 1.1 2.3 2.2 2.3" stroke-width="1.1"/>
+      <path d="M22 8c0 5.5-3 8-7.5 8" stroke-width="1.1"/>
+    </g>
+    <path d="M4 0 8 4 4 8 0 4Z" fill="url(#g-gold)"/>
+    <circle cx="15.5" cy="15.5" r="1.6" fill="#f3d58e"/>
+  </symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></g></symbol>
+  <symbol id="i-weight" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a3 3 0 0 1 2.83 4H18a1 1 0 0 1 .97.76l2.5 10A1 1 0 0 1 20.5 19h-17a1 1 0 0 1-.97-1.24l2.5-10A1 1 0 0 1 6 7h3.17A3 3 0 0 1 12 3Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="15" rx="8" ry="4" fill="#8a6424"/><ellipse cx="12" cy="12.5" rx="8" ry="4" fill="#e7bf5f" stroke="#8a6424" stroke-width="1"/><ellipse cx="12" cy="12.5" rx="4.5" ry="2" fill="none" stroke="#a9802f" stroke-width="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 64 72"><path d="M32 2 60 12v20c0 18-12 30-28 38C16 62 4 50 4 32V12Z" fill="#1d1712" stroke="url(#g-gold)" stroke-width="3"/><path d="M32 9 53 17v15c0 14-9 24-21 31C20 56 11 46 11 32V17Z" fill="none" stroke="#c59a4c" stroke-width="1" opacity=".5"/></symbol>
+  <symbol id="i-sword" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M14.5 3.5H20.5V9.5L9 21 3 15ZM6 12l6 6M4 20l3-3"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></g></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.5v13l10-6.5Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.5C9 7 6 10.2 6 14a6 6 0 0 0 12 0c0-3.8-3-7-6-11.5Z"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V4h5"/><path d="M3.5 9A8.5 8.5 0 1 1 6 18"/><circle cx="12" cy="12" r="2"/></g></symbol>
+</svg>
+
+<a class="skip-link" href="#details">Skip to item details</a>
+
+<div class="app">
+  <!-- ============ LEFT: inventory ============ -->
+  <section class="panel inventory frame" aria-labelledby="app-title">
+    <header class="inv-header">
+      <p class="eyebrow">Baldur's Gate 3</p>
+      <h1 id="app-title">The Camp Chest</h1>
+      <div class="rule" aria-hidden="true"></div>
+      <nav class="view-switch" aria-label="View">
+        <a href="#" data-view="catalog">Catalogue</a><span class="vs-sep" aria-hidden="true">|</span><a href="#dress" data-view="dress">Dressing Room</a>
+      </nav>
+    </header>
+
+    <div id="data-notice" class="notice" role="status" hidden></div>
+
+    <div class="search">
+      <label for="search" class="visually-hidden">Search items</label>
+      <svg class="search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="search" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search name, type, damage, property, boost…"
+             aria-describedby="search-hint" aria-controls="grid">
+      <kbd id="search-hint" title="Press / to search, Esc to clear"><span class="visually-hidden">Shortcut: </span>/</kbd>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Category">
+      <button role="tab" id="tab-all" data-cat="all" aria-selected="true" aria-controls="grid">All <span class="tab-count"></span></button>
+      <button role="tab" id="tab-weapons" data-cat="weapons" aria-selected="false" aria-controls="grid" tabindex="-1">Weapons <span class="tab-count"></span></button>
+      <button role="tab" id="tab-armor" data-cat="armor" aria-selected="false" aria-controls="grid" tabindex="-1">Armour <span class="tab-count"></span></button>
+      <button role="tab" id="tab-clothing" data-cat="clothing" aria-selected="false" aria-controls="grid" tabindex="-1">Clothing <span class="tab-count"></span></button>
+    </div>
+    <div class="subtabs" id="subtabs" role="tablist" aria-label="Armour slot" hidden></div>
+
+    <div class="filters">
+      <label class="chip-select">
+        <span class="chip-label">Type</span>
+        <select id="f-type"><option value="">All types</option></select>
+      </label>
+      <label class="chip-select">
+        <span class="chip-label">Rarity</span>
+        <select id="f-rarity"><option value="">Any</option></select>
+      </label>
+      <label class="chip-select">
+        <span class="chip-label">Sort</span>
+        <select id="f-sort">
+          <option value="name">Name</option>
+          <option value="type">Type</option>
+          <option value="rarity">Rarity</option>
+          <option value="weight">Weight</option>
+          <option value="value">Value</option>
+        </select>
+      </label>
+      <button id="f-clear" class="chip-btn" type="button" hidden>Clear</button>
+    </div>
+
+    <div class="grid-head">
+      <span id="count" aria-live="polite">Loading…</span>
+      <span class="grid-help" aria-hidden="true">Arrow keys to browse</span>
+    </div>
+
+    <div class="grid-wrap">
+      <div id="grid" class="grid" role="listbox" aria-label="Items"></div>
+      <p id="empty" class="empty" hidden>No items match. <button type="button" class="link-btn" id="empty-clear">Clear search and filters</button></p>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT: viewer + details ============ -->
+  <section class="panel stage frame" aria-label="3D model">
+    <div class="stage-top">
+      <div class="stage-title">
+        <span id="stage-name" class="stage-name">—</span>
+        <span id="stage-sub" class="stage-sub"></span>
+        <div id="dye-ind" class="dye-ind" hidden>
+          <span id="dye-ind-sw" class="dye-swatch" aria-hidden="true"></span>
+          <span class="dye-ind-text">Dyed: <b id="dye-ind-name"></b></span>
+          <button id="dye-ind-clear" class="dye-ind-clear" type="button" title="Remove dye (restore original colours)" aria-label="Remove dye">&times;</button>
+        </div>
+      </div>
+      <div class="stage-controls">
+        <div id="mode" class="segmented" role="group" aria-label="Model" hidden>
+          <button type="button" data-mode="worn" aria-pressed="false">Worn</button>
+          <button type="button" data-mode="loot" aria-pressed="false">On the ground</button>
+        </div>
+        <div id="body" class="segmented" role="group" aria-label="Body type" hidden>
+          <button type="button" data-body="F" aria-pressed="false" title="Female body">F</button>
+          <button type="button" data-body="M" aria-pressed="false" title="Male body">M</button>
+        </div>
+        <button id="btn-rotate" class="icon-btn" type="button" aria-pressed="true" title="Auto-rotate">
+          <svg aria-hidden="true"><use href="#i-rotate"/></svg><span class="visually-hidden">Auto-rotate</span>
+        </button>
+        <button id="btn-reset" class="icon-btn" type="button" title="Reset view">
+          <svg aria-hidden="true"><use href="#i-reset"/></svg><span class="visually-hidden">Reset view</span>
+        </button>
+      </div>
+    </div>
+    <div class="viewer-wrap">
+      <div id="viewer" class="viewer" aria-hidden="true"></div>
+      <div id="viewer-loading" class="viewer-loading" role="progressbar" aria-label="Loading model" aria-valuemin="0" aria-valuemax="100" hidden>
+        <div class="sigil" aria-hidden="true"></div>
+        <div class="bar"><span id="viewer-bar"></span></div>
+        <span id="viewer-loading-text">Summoning model…</span>
+      </div>
+      <div id="viewer-msg" class="viewer-msg" role="status" hidden></div>
+      <p class="viewer-hint" aria-hidden="true">Drag to rotate · scroll to zoom</p>
+    </div>
+    <!-- Dye tray: shown by app.js only when the loaded model is dyeable -->
+    <div id="dye-bar" class="dye-bar" hidden>
+      <div class="dye-head">
+        <button id="dye-toggle" class="dye-toggle" type="button" aria-expanded="true" aria-controls="dye-body">
+          <span class="dye-chev" aria-hidden="true"></span>Dyes <span id="dye-count" class="dye-count"></span>
+        </button>
+        <span id="dye-sample" class="dye-sample" title="data/dyes.json was not found, so placeholder dyes are shown" hidden>Sample</span>
+        <span id="dye-status" class="dye-status" role="status" aria-live="polite"></span>
+        <label id="dye-filter-wrap" class="dye-filter" hidden>
+          <span class="visually-hidden">Filter dyes</span>
+          <svg aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="dye-filter" type="search" placeholder="Filter dyes…" autocomplete="off" spellcheck="false" aria-controls="dye-tray">
+        </label>
+      </div>
+      <div id="dye-body" class="dye-body">
+        <div id="dye-tray" class="dye-tray" role="toolbar" aria-label="Dyes" aria-orientation="horizontal"></div>
+        <p id="dye-empty" class="dye-empty" hidden>No dyes match.</p>
+      </div>
+    </div>
+    <p id="dye-note" class="dye-note" hidden>Dyes only affect armour and clothing</p>
+  </section>
+
+  <aside id="details" class="panel details frame" aria-label="Item details" tabindex="-1">
+    <div id="card" class="card"></div>
+  </aside>
+</div>
+
+<!-- ============ DRESSING ROOM (dressing-ui.js) ============ -->
+<div class="dress-app" id="dress-app" hidden>
+  <section class="panel inventory dress-inv frame" aria-labelledby="dress-title">
+    <header class="inv-header">
+      <p class="eyebrow">Baldur's Gate 3</p>
+      <h1 id="dress-title">The Dressing Room</h1>
+      <div class="rule" aria-hidden="true"></div>
+      <nav class="view-switch" aria-label="View">
+        <a href="#" data-view="catalog">Catalogue</a><span class="vs-sep" aria-hidden="true">|</span><a href="#dress" data-view="dress">Dressing Room</a>
+      </nav>
+    </header>
+    <div class="search">
+      <label for="d-search" class="visually-hidden">Search wearables</label>
+      <svg class="search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="d-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search wearables…" aria-controls="d-grid">
+    </div>
+    <div class="subtabs d-filter" id="d-filter" role="tablist" aria-label="Slot"></div>
+    <div class="grid-head">
+      <span id="d-count" class="d-count" aria-live="polite">Loading…</span>
+      <span class="grid-help" aria-hidden="true">Drag, double-click or Enter to equip</span>
+    </div>
+    <div class="grid-wrap">
+      <div id="d-grid" class="grid" role="listbox" aria-label="Wearable items" aria-describedby="d-grid-help"></div>
+      <p id="d-empty" class="empty" hidden>No wearables match.</p>
+    </div>
+    <p id="d-grid-help" class="visually-hidden">Enter equips the focused item on the selected slot. Double-click equips it on its own slot.</p>
+  </section>
+
+  <section class="panel stage dress-stage frame" aria-labelledby="d-stage-title">
+    <div class="stage-top">
+      <div class="stage-title">
+        <span id="d-stage-title" class="stage-name">Character</span>
+        <span id="d-sub" class="stage-sub"></span>
+      </div>
+      <div class="stage-controls d-controls">
+        <div id="d-body" class="segmented" role="group" aria-label="Body type">
+          <button type="button" data-body="F" aria-pressed="false" title="Female body">F</button>
+          <button type="button" data-body="M" aria-pressed="false" title="Male body">M</button>
+        </div>
+        <button id="d-camp" class="chip-btn d-camp" type="button" aria-pressed="false" title="Show the camp set (Camp Clothes and Camp Shoes)">Camp</button>
+        <details class="pop" id="d-pose-pop">
+          <summary class="chip-btn"><span class="pop-label">Pose</span> <b id="d-pose-name">Idle</b></summary>
+          <div class="pop-panel">
+            <label class="dye-filter pop-filter"><span class="visually-hidden">Filter poses</span><svg aria-hidden="true"><use href="#i-search"/></svg><input id="d-pose-filter" type="search" placeholder="Filter poses…" autocomplete="off" spellcheck="false" aria-controls="d-pose"></label>
+            <label for="d-pose" class="visually-hidden">Pose</label>
+            <select id="d-pose" size="10"></select>
+          </div>
+        </details>
+        <details class="pop" id="d-skin-pop">
+          <summary class="chip-btn"><span class="pop-label">Skin</span> <span id="d-skin-sw" class="skin-dot" aria-hidden="true"></span><span id="d-skin-name" class="visually-hidden"></span></summary>
+          <div class="pop-panel">
+            <div id="d-skin" class="skins" role="radiogroup" aria-label="Skin tone"></div>
+          </div>
+        </details>
+        <button id="d-play" class="icon-btn" type="button" aria-pressed="false" title="Play idle animation" hidden>
+          <svg aria-hidden="true"><use href="#i-play"/></svg><span class="visually-hidden">Play idle animation</span>
+        </button>
+        <button id="d-reset" class="icon-btn" type="button" title="Reset view">
+          <svg aria-hidden="true"><use href="#i-reset"/></svg><span class="visually-hidden">Reset view</span>
+        </button>
+      </div>
+    </div>
+    <div class="dress-body">
+      <div class="viewer-wrap dress-view" id="d-drop">
+        <div id="d-viewer" class="viewer" aria-hidden="true"></div>
+        <div id="d-loading" class="viewer-loading indeterminate" role="progressbar" aria-label="Loading character" hidden>
+          <div class="sigil" aria-hidden="true"></div>
+          <div class="bar"><span></span></div>
+          <span>Dressing the mannequin…</span>
+        </div>
+        <span id="d-busy" class="d-busy" role="status" hidden>Loading…</span>
+        <div id="d-msg" class="viewer-msg" role="status" hidden></div>
+        <p class="viewer-hint" aria-hidden="true">Drop items on the character · drag to rotate · scroll to zoom</p>
+      </div>
+      <div class="dslots-all">
+        <div class="dslots dslots-left" id="d-slots-left" role="group" aria-label="Armour slots"></div>
+        <div class="dslots dslots-right" id="d-slots-right" role="group" aria-label="Jewellery and underwear"></div>
+        <div class="dslots dslots-bottom" id="d-slots-bottom" role="group" aria-label="Weapons"></div>
+      </div>
+    </div>
+    <p id="d-status" class="d-status" role="status" aria-live="polite"></p>
+    <div id="d-dye-bar" class="dye-bar d-dye-bar">
+      <div class="dye-head">
+        <span class="dye-toggle d-dye-title"><svg class="d-dye-icon" aria-hidden="true"><use href="#i-drop"/></svg>Dye <b id="d-dye-target" class="d-dye-target"></b></span>
+        <button id="d-dye-all" class="chip-btn" type="button" title="Apply this piece's dye to every dyeable piece">Dye all</button>
+        <label class="dye-filter"><span class="visually-hidden">Filter dyes</span><svg aria-hidden="true"><use href="#i-search"/></svg><input id="d-dye-filter" type="search" placeholder="Filter dyes…" autocomplete="off" spellcheck="false" aria-controls="d-dye-tray"></label>
+      </div>
+      <div class="dye-body">
+        <div id="d-dye-tray" class="dye-tray" role="toolbar" aria-label="Dyes for the selected piece" aria-orientation="horizontal"></div>
+        <p id="d-dye-msg" class="dye-empty" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <aside id="d-side" class="panel details dress-side frame" aria-label="Selected piece and outfits" tabindex="-1">
+    <div class="card d-side-card">
+      <div id="d-piece"></div>
+      <section class="section d-outfits" aria-labelledby="d-outfits-h">
+        <h3 id="d-outfits-h">Outfits</h3>
+        <form id="d-save" class="d-save">
+          <label for="d-outfit-name" class="visually-hidden">Outfit name</label>
+          <input id="d-outfit-name" type="text" maxlength="60" placeholder="Name this outfit…" autocomplete="off" required>
+          <button class="chip-btn" type="submit">Save</button>
+        </form>
+        <ul id="d-outfit-list" class="d-outfit-list"></ul>
+        <p id="d-outfit-empty" class="d-muted">No saved outfits yet.</p>
+        <div class="d-actions">
+          <button id="d-share" class="chip-btn" type="button">Copy share link</button>
+          <button id="d-random" class="chip-btn" type="button">Randomise</button>
+          <button id="d-clear" class="chip-btn" type="button">Clear</button>
+        </div>
+        <p id="d-outfit-status" class="d-muted" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </aside>
+</div>
+<div id="d-ghost" class="d-ghost" aria-hidden="true" hidden></div>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+</body>
+</html>

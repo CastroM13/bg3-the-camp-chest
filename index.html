@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camp Chest · BG3 Item Catalog</title>
+<meta name="description" content="An unofficial fan catalogue of Baldur's Gate 3 items, read locally from your own installed copy of the game.">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="onboarding.css">
+<style>
+  #app-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #0d0b09; }
+  body.app-mounted > main, body.app-mounted > #onboarding { display: none; }
+  #change-folder { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; line-height: 14px; padding: 0 6px; z-index: 2; font: 12px 'EB Garamond', serif; color: #8d7a58; background: none; border: 0; cursor: pointer; opacity: .55; }
+  #change-folder:hover, #change-folder:focus-visible { opacity: 1; color: #d8b36a; text-decoration: underline; }
+  .boot-bar { height: 6px; margin: 18px 0 8px; border-radius: 3px; background: rgba(200,160,90,.15); overflow: hidden; }
+  .boot-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #8a6a33, #d8b36a); transition: width .3s; }
+</style>
+<script type="module">
+  import { getGameFolder } from './onboarding.js';
+
+  // ?devdata on localhost: automated tests read the game through test/dev_server.py instead of the folder picker
+  const devData = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('devdata');
+  const dataDir = devData ? null : await getGameFolder(); // FileSystemDirectoryHandle for the game's Data folder
+
+  // TODO(integrator): start the engine here. engine/main.js is expected to export
+  //   startApp(dataDir: FileSystemDirectoryHandle): Promise<void>
+  // which spins up engine/worker.js, registers sw.js (vfs/*) and then loads the app/ UI.
+  // The import is guarded so this page keeps working while that module doesn't exist yet.
+  let engine = null;
+  try {
+    engine = await import('./engine/main.js');
+  } catch (err) {
+    console.warn('[camp-chest] engine/main.js is not available yet:', err);
+  }
+
+  const status = document.getElementById('boot-status');
+  if (engine && typeof engine.startApp === 'function') {
+    status.hidden = false;
+    try {
+      await engine.startApp(dataDir);
+      status.hidden = true;
+    } catch (err) {
+      console.error('[camp-chest] startApp failed', err);
+      status.querySelector('h1').textContent = 'Something went wrong';
+      status.querySelector('p').textContent = 'The catalogue could not be built from your game files. Details are in the browser console.';
+      status.querySelector('.ob-spinner').hidden = true;
+    }
+  } else {
+    document.getElementById('dev-folder').textContent = dataDir.name;
+    document.getElementById('dev-notice').hidden = false;
+  }
+</script>
+</head>
+<body>
+<div id="onboarding" hidden></div>
+
+<main class="ob-page">
+  <noscript>
+    <div class="ob-panel ob-narrow">
+      <h1 class="ob-title">JavaScript is required</h1>
+      <p>Camp Chest reads your own copy of Baldur's Gate 3 locally in the browser, which needs JavaScript and desktop Chrome or Edge.</p>
+    </div>
+  </noscript>
+
+  <!-- Shown while engine/main.js builds the catalogue (the integrator may replace this). -->
+  <div class="ob-panel ob-narrow" id="boot-status" hidden>
+    <h1 class="ob-title">Opening the chest…</h1>
+    <div class="ob-spinner" aria-hidden="true"></div>
+    <p class="ob-small">Reading your local game files. Nothing is uploaded.</p>
+  </div>
+
+  <!-- Development placeholder, shown only while engine/main.js is missing. -->
+  <div class="ob-panel ob-narrow" id="dev-notice" hidden>
+    <h1 class="ob-title">Game folder ready</h1>
+    <p>Read access to <code id="dev-folder"></code> is granted and the required files were found.</p>
+    <p class="ob-small">The engine module (<code>engine/main.js</code>) isn't part of this build yet, so the catalogue can't start.
+      The <a href="app/">app UI</a> can still be opened on its own with sample data.</p>
+  </div>
+
+  <footer class="ob-footer" id="page-footer"></footer>
+</main>
+
+<!-- Footer shared by the onboarding overlay and the page. -->
+<template id="ob-footer-template">
+  Camp Chest is an unofficial fan project. Not affiliated with Larian Studios.
+  <span class="sep" aria-hidden="true">·</span><a href="legal.html">Legal notice</a>
+  <!-- TODO: replace with the real repository URL -->
+  <span class="sep" aria-hidden="true">·</span><a href="https://github.com/your-github-user/your-repo" rel="noopener">GitHub</a>
+</template>
+<script>
+  document.getElementById('page-footer').innerHTML = document.getElementById('ob-footer-template').innerHTML;
+</script>
+</body>
+</html>

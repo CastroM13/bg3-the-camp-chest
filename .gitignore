@@ -1,0 +1,14 @@
+# Never commit anything extracted or built from the game
+output/
+extract/
+vfs/
+*.gr2
+*.GR2
+*.dds
+*.DDS
+*.pak
+*.gts
+*.gtp
+*.glb
+test/out/
+node_modules/
